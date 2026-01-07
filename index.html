@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BAT-COMPUTADOR V3</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Koulen&family=Share+Tech+Mono&display=swap');
+
+        :root {
+            --neon: #00ff41; 
+            --gold: #FFD700;
+            --bg: #000000;
+            --panel: rgba(10, 10, 10, 0.95);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; scrollbar-width: thin; scrollbar-color: var(--gold) var(--bg); }
+
+        body {
+            background-color: var(--bg); color: #ccc; font-family: 'Share Tech Mono', monospace;
+            overflow-x: hidden;
+        }
+
+        canvas#matrix {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            opacity: 0.3;
+        }
+
+        #intro-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; cursor: pointer;
+            transition: opacity 1s;
+        }
+        .scanner-line {
+            width: 100%; height: 5px; background: var(--neon);
+            box-shadow: 0 0 20px var(--neon);
+            position: absolute; top: 0;
+            animation: scan 2s infinite linear;
+        }
+        @keyframes scan { 0% {top:0} 50% {top:100%} 100% {top:0} }
+
+        .access-btn {
+            border: 2px solid var(--neon); color: var(--neon); padding: 20px 50px;
+            font-family: 'Koulen'; font-size: 2rem; background: rgba(0,255,65,0.1);
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse { from {box-shadow: 0 0 10px var(--neon);} to {box-shadow: 0 0 30px var(--neon);} }
+
+        header {
+            background: rgba(0,0,0,0.9); border-bottom: 3px solid var(--gold); padding: 40px; text-align: center;
+            position: sticky; top: 0; z-index: 500; box-shadow: 0 10px 50px rgba(0,0,0,0.9);
+            backdrop-filter: blur(5px);
+        }
+
+        h1 { font-family: 'Koulen', sans-serif; font-size: 4rem; letter-spacing: 5px; color: #fff; margin-bottom: 10px; line-height: 1; text-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+        h1 span { color: var(--gold); }
+
+        .busca-container { width: 100%; max-width: 700px; margin: 0 auto 20px auto; }
+        input {
+            width: 100%; padding: 15px; font-size: 1.2rem; background: #000; border: 1px solid #444; color: var(--gold);
+            font-family: 'Share Tech Mono'; text-transform: uppercase; transition: 0.3s;
+        }
+        input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 25px rgba(255, 215, 0, 0.4); }
+
+        .botoes { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        .btn {
+            background: #111; border: 1px solid #333; color: #888; padding: 10px 25px;
+            cursor: pointer; text-transform: uppercase; font-family: 'Koulen'; letter-spacing: 1px; font-size: 1.1rem; transition: 0.3s;
+        }
+        .btn:hover, .btn.ativo { background: var(--gold); color: #000; border-color: #fff; box-shadow: 0 0 20px var(--gold); }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; padding: 40px; max-width: 1800px; margin: 0 auto; }
+
+        .card {
+            background: var(--panel); border: 1px solid #333; height: 350px; position: relative; cursor: pointer;
+            overflow: hidden; transition: 0.3s; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        .card:hover { transform: scale(1.03); border-color: var(--gold); z-index: 10; box-shadow: 0 0 30px rgba(255,215,0,0.2); }
+        .card-img { width: 100%; height: 100%; object-fit: cover; opacity: 0.7; filter: grayscale(90%); transition: 0.4s; }
+        .card:hover .card-img { opacity: 1; filter: grayscale(0%); }
+        .card-info {
+            position: absolute; bottom: 0; left: 0; width: 100%; background: linear-gradient(to top, #000 95%, transparent);
+            padding: 15px; border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .c-tipo { color: var(--gold); font-size: 0.8rem; letter-spacing: 2px; margin-bottom: 5px; }
+        .c-nome { color: #fff; font-family: 'Koulen'; font-size: 1.5rem; line-height: 1; text-transform: uppercase; }
+
+        /* MODAL E VERSÕES */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98);
+            z-index: 1000; display: none; align-items: center; justify-content: center;
+        }
+        .modal {
+            width: 95%; max-width: 1200px; height: 90vh; background: #080808; border: 2px solid var(--gold);
+            display: flex; box-shadow: 0 0 100px rgba(255, 215, 0, 0.3); overflow: hidden; position: relative;
+        }
+        .m-esq { flex: 1; border-right: 2px solid #222; min-width: 350px; position: relative; display: flex; flex-direction: column; }
+        .main-img-container { flex: 1; overflow: hidden; position: relative; }
+        .m-esq img { width: 100%; height: 100%; object-fit: cover; transition: 0.3s; }
+
+        .versoes-container {
+            height: 110px; background: #050505; border-top: 2px solid var(--gold);
+            display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px; overflow-x: auto;
+        }
+        .v-btn {
+            width: 70px; height: 70px; border: 2px solid #333; cursor: pointer; opacity: 0.5; transition: 0.3s;
+            background-size: cover; background-position: top center; border-radius: 5px; position: relative; flex-shrink: 0;
+        }
+        .v-btn:hover, .v-btn.ativo { border-color: var(--neon); opacity: 1; transform: scale(1.1); box-shadow: 0 0 15px var(--neon); }
+        .v-tooltip {
+            position: absolute; bottom: 75px; left: 50%; transform: translateX(-50%);
+            background: var(--neon); color: #000; padding: 5px 10px; font-family: 'Koulen';
+            font-size: 0.9rem; pointer-events: none; opacity: 0; transition: 0.2s; white-space: nowrap; z-index: 20;
+        }
+        .v-btn:hover .v-tooltip { opacity: 1; }
+
+        .m-selo {
+            position: absolute; top: 20px; left: 20px; background: #000; color: var(--gold); border: 2px solid var(--gold);
+            padding: 5px 15px; font-weight: bold; letter-spacing: 2px; z-index: 5;
+        }
+
+        .m-dir { flex: 2; padding: 40px; overflow-y: auto; background: repeating-linear-gradient(45deg, #0a0a0a, #0a0a0a 10px, #0f0f0f 10px, #0f0f0f 20px); }
+        .m-titulo { font-size: 4rem; font-family: 'Koulen'; color: #fff; line-height: 0.8; text-transform: uppercase; }
+        .m-real { color: #666; font-size: 1.2rem; margin: 10px 0 30px 0; padding-bottom: 10px; border-bottom: 2px solid #333; display: flex; justify-content: space-between; }
+        .secao { color: var(--gold); font-size: 1.3rem; margin: 30px 0 10px 0; border-left: 5px solid var(--gold); padding-left: 15px; text-transform: uppercase; font-family: 'Koulen'; letter-spacing: 1px; }
+        .texto { color: #ccc; line-height: 1.8; font-size: 1.1rem; white-space: pre-line; text-align: justify; }
+        .trivia-grid { display: grid; gap: 10px; }
+        .trivia-item { background: #151515; padding: 15px; border-left: 3px solid #444; color: #ddd; font-size: 1rem; }
+        .trivia-item span { color: var(--gold); font-weight: bold; margin-right: 5px; }
+
+        .fechar-btn { position: absolute; top: 20px; right: 20px; font-size: 3rem; color: #fff; background: none; border: none; cursor: pointer; z-index: 10; }
+        .fechar-btn:hover { color: red; }
+
+        @media(max-width: 900px) { .modal { flex-direction: column; } .m-esq { height: 500px; flex: none; } }
+    </style>
+</head>
+<body>
+
+<div id="intro-screen" onclick="entrarSistema()">
+    <div class="scanner-line"></div>
+    <div style="text-align: center;">
+        <h1 style="font-size: 5rem; color: #fff;">WAYNE<span style="color:var(--neon)">TECH</span></h1>
+        <div class="access-btn">CLIQUE PARA ACESSAR SISTEMA</div>
+        <p style="color: #666; margin-top: 20px; font-family: 'Share Tech Mono';">VERIFICAÇÃO DE RETINA NECESSÁRIA...</p>
+    </div>
+</div>
+
+<canvas id="matrix"></canvas>
+
+<header>
+    <h1>BAT<span>COMPUTADOR</span></h1>
+    <div class="busca-container"><input type="text" id="busca" placeholder="PESQUISAR ARQUIVO..." onkeyup="filtrarSistema()"></div>
+    <div class="botoes">
+        <button class="btn" id="btn-som" onclick="toggleSom()">SOM: ON</button>
+        <button class="btn ativo" onclick="filtrarTipo('all')">TODOS</button>
+        <button class="btn" onclick="filtrarTipo('hero')">BAT-FAMÍLIA</button>
+        <button class="btn" onclick="filtrarTipo('villain')">VILÕES</button>
+        <button class="btn" onclick="filtrarTipo('ally')">ALIADOS</button>
+        <button class="btn" onclick="filtrarTipo('justice')">LIGA/OUTROS</button>
+    </div>
+    <div id="status" style="margin-top:15px; color:#555;">AGUARDANDO ACESSO...</div>
+</header>
+
+<audio id="bat-audio" loop preload="auto">
+    <source src="musica.mp3" type="audio/mpeg">
+    <source src="https://ia800504.us.archive.org/33/items/BatmanTheAnimatedSeriesTheme_201606/Batman%20The%20Animated%20Series%20Theme.mp3" type="audio/mpeg">
+</audio>
+
+<div class="grid" id="grid"></div>
+
+<div class="overlay" id="overlay" onclick="fecharModal(event)">
+    <div class="modal" id="modal-box">
+        <button class="fechar-btn" onclick="toggleModal(false)">×</button>
+        <div class="m-esq">
+            <div class="m-selo">CONFIDENCIAL</div>
+            <div class="main-img-container">
+                <img src="" id="m-img" onerror="this.src='https://placehold.co/400x600/000/fff?text=SEM+FOTO'">
+            </div>
+            <div class="versoes-container" id="m-versoes"></div>
+        </div>
+        <div class="m-dir">
+            <h2 class="m-titulo" id="m-nome">NOME</h2>
+            <div class="m-real"><span id="m-real">Nome Real</span> <span id="m-tipo" style="color:var(--amarelo)">TIPO</span></div>
+
+            <div class="secao">Variante Selecionada</div>
+            <div class="texto" id="m-variant-desc" style="color:var(--neon); font-weight:bold; margin-bottom: 20px;">Padrão</div>
+
+            <div class="secao">Resumo Tático</div>
+            <div class="texto" id="m-curto" style="color:#fff; font-weight:bold;"></div>
+            <div class="secao">Dossiê (5 Fatos)</div>
+            <div class="trivia-grid" id="m-triv"></div>
+            <div class="secao">História Completa</div>
+            <div class="texto" id="m-hist"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('matrix');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    const letras = "WAYNETECH010101BATMANJOKER";
+    const fontSize = 16;
+    const columns = canvas.width / fontSize;
+    const drops = Array(Math.floor(columns)).fill(1);
+    function drawMatrix() {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.05)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#00ff41"; ctx.font = fontSize + "px monospace";
+        for(let i = 0; i < drops.length; i++) {
+            const text = letras[Math.floor(Math.random()*letras.length)];
+            ctx.fillText(text, i*fontSize, drops[i]*fontSize);
+            if(drops[i]*fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+        }
+    }
+    setInterval(drawMatrix, 33);
+
+    function entrarSistema() {
+        const intro = document.getElementById('intro-screen');
+        const audio = document.getElementById('bat-audio');
+        const btnSom = document.getElementById('btn-som');
+        audio.play().then(() => { btnSom.innerText = "SOM: ON"; btnSom.classList.add('ativo'); }).catch(e => console.log("Erro áudio:", e));
+        intro.style.opacity = '0';
+        setTimeout(() => { intro.style.display = 'none'; }, 1000);
+    }
+
+    function toggleSom() {
+        const audio = document.getElementById('bat-audio');
+        const btn = document.getElementById('btn-som');
+        if (audio.paused) { audio.play(); btn.innerText = "SOM: ON"; btn.style.color = "#000"; btn.style.background = "#FFD700"; } 
+        else { audio.pause(); btn.innerText = "SOM: OFF"; btn.style.color = "#888"; btn.style.background = "#111"; }
+    }
+
+    function iniciar() {
+        renderizar(dadosCompletos);
+        document.getElementById('status').innerText = `SISTEMA ONLINE: ${dadosCompletos.length} ARQUIVOS CARREGADOS.`;
+    }
+
+    function renderizar(lista) {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = '';
+        lista.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.onclick = () => abrirModal(item);
+            card.style.borderTop = `4px solid #${item.color}`;
+            // Usa a imagem da primeira versão como capa
+            const imgCapa = (item.versions && item.versions.length > 0) ? item.versions[0].img : item.img;
+
+            card.innerHTML = `
+                <img src="${imgCapa}" class="card-img" loading="lazy" onerror="this.src='https://placehold.co/400x600/000/fff?text=SEM+FOTO'">
+                <div class="card-info">
+                    <div class="c-tipo" style="color:#${item.color}">${item.type.toUpperCase()}</div>
+                    <div class="c-nome">${item.name}</div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function filtrarTipo(tipo) {
+        document.querySelectorAll('.btn').forEach(b => { if(b.id !== 'btn-som') b.classList.remove('ativo'); });
+        if(event.target.id !== 'btn-som') event.target.classList.add('ativo');
+        if(tipo === 'all') renderizar(dadosCompletos);
+        else renderizar(dadosCompletos.filter(i => i.type === tipo));
+    }
+
+    function filtrarSistema() {
+        const termo = document.getElementById('busca').value.toLowerCase();
+        renderizar(dadosCompletos.filter(i => i.name.toLowerCase().includes(termo) || i.real.toLowerCase().includes(termo)));
+    }
+
+    // --- FUNÇÃO PRINCIPAL DE VERSÕES ---
+    function abrirModal(item) {
+        const modal = document.getElementById('overlay');
+        const box = document.getElementById('modal-box');
+        const cor = `#${item.color}`;
+
+        box.style.borderColor = cor;
+        box.style.boxShadow = `0 0 80px ${cor}40`;
+        document.getElementById('m-nome').style.color = cor;
+        document.getElementById('m-nome').innerText = item.name;
+        document.getElementById('m-real').innerText = item.real;
+        document.getElementById('m-tipo').innerText = item.type.toUpperCase();
+        document.getElementById('m-tipo').style.color = cor;
+
+        document.querySelector('.m-selo').style.borderColor = cor;
+        document.querySelector('.m-selo').style.color = cor;
+        document.querySelector('.versoes-container').style.borderTopColor = cor;
+
+        const gridTrivia = document.getElementById('m-triv');
+        gridTrivia.innerHTML = '';
+        item.triv.forEach(fato => {
+            const div = document.createElement('div');
+            div.className = 'trivia-item';
+            if(fato.includes(":")) {
+                const partes = fato.split(":");
+                div.innerHTML = `<span style="color:${cor}">${partes[0]}:</span>${partes[1]}`;
+            } else { div.innerText = fato; }
+            div.style.borderLeftColor = cor;
+            gridTrivia.appendChild(div);
+        });
+
+        const containerVersoes = document.getElementById('m-versoes');
+        containerVersoes.innerHTML = ''; 
+
+        // Garante que o item tenha versões (fallback)
+        let versoesParaMostrar = item.versions;
+        if (!versoesParaMostrar || versoesParaMostrar.length === 0) {
+            versoesParaMostrar = [
+                { name: "Padrão", img: item.img || "https://placehold.co/400x600/000/fff", short: item.short, hist: item.hist }
+            ];
+        }
+
+        versoesParaMostrar.forEach((ver, index) => {
+            const btn = document.createElement('div');
+            btn.className = 'v-btn';
+            btn.style.backgroundImage = `url('${ver.img}')`;
+            if(index === 0) btn.classList.add('ativo');
+
+            const tool = document.createElement('div');
+            tool.className = 'v-tooltip';
+            tool.innerText = ver.name;
+            btn.appendChild(tool);
+
+            btn.onclick = () => {
+                document.getElementById('m-img').src = ver.img;
+                document.getElementById('m-variant-desc').innerText = ver.name;
+                document.getElementById('m-curto').innerText = ver.short || item.short; // fallback
+                document.getElementById('m-hist').innerText = ver.hist || item.hist; // fallback
+                document.querySelectorAll('.v-btn').forEach(b => b.classList.remove('ativo'));
+                btn.classList.add('ativo');
+            };
+            containerVersoes.appendChild(btn);
+        });
+
+        // Inicia com a primeira versão
+        const v0 = versoesParaMostrar[0];
+        document.getElementById('m-img').src = v0.img;
+        document.getElementById('m-variant-desc').innerText = v0.name;
+        document.getElementById('m-curto').innerText = v0.short || item.short;
+        document.getElementById('m-hist').innerText = v0.hist || item.hist;
+
+        modal.style.display = 'flex';
+    }
+
+    function toggleModal(mostrar) { document.getElementById('overlay').style.display = mostrar ? 'flex' : 'none'; }
+    function fecharModal(e) { if(e.target.id === 'overlay') toggleModal(false); }
+
+    window.onload = iniciar;
+    window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+</script>
+    <script>
+    const lista1 = [
+        { 
+            name: "Batman", real: "Bruce Wayne", type: "hero", color: "f9c908", 
+            triv: ["QI: 192.", "Luta: Mestre.", "Medo: Falhar.", "Plano: Liga.", "Status: Líder."],
+            versions: [
+                { 
+                    name: "Batman Moderno", 
+                    img: "https://i.ibb.co/M3mPDWj/ab095f8458de02474147aa40c94c141a.jpg",
+                    short: "O Cavaleiro das Trevas.", 
+                    hist: "Aos 8 anos, Bruce testemunhou o assassinato de seus pais. Jurou livrar Gotham do mal, transformando-se no maior detetive do mundo. Ele luta uma guerra eterna limitado apenas por sua regra de não matar."
+                },
+                { 
+                    name: "Cavaleiro das Trevas (TDKR)", 
+                    img: "https://i.pinimg.com/736x/8e/bc/e7/8ebce725c4852069414bb37517596a1a.jpg",
+                    short: "O Batman Aposentado e Brutal.",
+                    hist: "Em um futuro distópico, um Bruce Wayne de 55 anos sai da aposentadoria. Mais lento, porém mais forte e brutal, ele usa táticas militares e armaduras pesadas para enfrentar gangues mutantes e o próprio Superman."
+                },
+                { 
+                    name: "Batman do Futuro", 
+                    img: "https://i.pinimg.com/564x/44/7f/73/447f7300c3a5930e171b3e72643a3255.jpg",
+                    short: "Terry McGinnis.",
+                    hist: "Em 2039, Bruce Wayne está velho demais para lutar. O jovem Terry McGinnis assume o manto usando um traje de alta tecnologia que permite voo, invisibilidade e força ampliada."
+                }
+            ]
+        },
+        { 
+            name: "Asa Noturna", real: "Dick Grayson", type: "hero", color: "00ccff", 
+            triv: ["Ex: Batman.", "Arma: Bastões.", "Status: Ativo.", "Relação: Filho.", "Amor: Estelar."],
+            versions: [
+                { 
+                    name: "Asa Noturna (Atual)", 
+                    img: "https://i.ibb.co/wFHGgRqC/868aa4c7c1297eca43232930c2b17c7e.jpg",
+                    short: "O Primeiro Robin.", 
+                    hist: "Dick Grayson saiu da sombra do Batman para se tornar o protetor de Blüdhaven. Líder nato dos Titãs, ele combina as habilidades do Batman com carisma e esperança."
+                },
+                { 
+                    name: "Robin (Clássico)", 
+                    img: "https://i.pinimg.com/564x/a4/09/b3/a409b300305001557007604593457199.jpg",
+                    short: "O Menino Prodígio.",
+                    hist: "Como o primeiro parceiro do Batman, Dick trouxe luz à escuridão de Bruce. Ágil e colorido, ele foi essencial para impedir que o Batman cruzasse a linha."
+                },
+                { 
+                    name: "Agente 37", 
+                    img: "https://i.pinimg.com/564x/f3/04/30/f304300959f71587323380b29645856c.jpg",
+                    short: "O Superespião.",
+                    hist: "Após ter sua identidade revelada, Dick forjou a própria morte e se infiltrou na organização ESPIRAL como um agente secreto sem máscara, usando armas de fogo e charme."
+                }
+            ]
+        },
+        { 
+            name: "Capuz Vermelho", real: "Jason Todd", type: "hero", color: "ff0000", 
+            triv: ["Morte: Pé de cabra.", "Arma: Pistolas.", "Time: Foragidos.", "Capacete: Explosivo.", "Status: Anti-Herói."],
+            versions: [
+                { 
+                    name: "Capuz Vermelho", 
+                    img: "https://i.ibb.co/Y7jM91rS/16927fc47fa3c72740e6273d175b75e6.jpg",
+                    short: "O Robin Caído.", 
+                    hist: "O segundo Robin, morto pelo Coringa e ressuscitado. Ele controla o crime matando criminosos, o que o coloca em conflito direto com o código moral do Batman."
+                },
+                { 
+                    name: "Arkham Knight", 
+                    img: "https://i.pinimg.com/564x/24/4d/99/244d99042299616039512316666133a8.jpg",
+                    short: "O Comandante Militar.",
+                    hist: "Nesta versão, Jason não morreu, mas foi torturado pelo Coringa por um ano. Ele retornou com um exército de tanques e drones para dominar Gotham e destruir o Batman."
+                }
+            ]
+        },
+        { 
+            name: "Robin", real: "Damian Wayne", type: "hero", color: "00ff00", 
+            triv: ["Dieta: Vegetariano.", "Pets: Dragão.", "Perícia: Espada.", "Rival: Tim.", "Fato: Morreu."],
+            versions: [
+                { name: "Robin V", img: "https://i.ibb.co/DP9tzD5d/864e23c6f1c6e5061990521a70667592.jpg", short: "Filho do Batman.", hist: "Filho de Bruce e Talia, criado pela Liga dos Assassinos. Luta para controlar seus instintos letais." },
+                { name: "Batman 666", img: "https://i.pinimg.com/564x/0f/73/0c/0f730c1c87708761266848035544485e.jpg", short: "O Batman do Apocalipse.", hist: "Em um futuro sombrio, Damian vende a alma ao diabo para proteger Gotham. Ele é um Batman imortal e místico." }
+            ]
+        },
+        { 
+            name: "Red Robin", real: "Tim Drake", type: "hero", color: "ffcc00", 
+            triv: ["QI: Gênio.", "Arma: Bastão.", "Time: Justiça Jovem.", "Perícia: Hacker.", "Traje: Planador."],
+            versions: [
+                { name: "Red Robin", img: "https://i.ibb.co/TxT62NJ1/8e1f54f9b733e3623dcd4af973af9acd.jpg", short: "O Estrategista.", hist: "O terceiro Robin, que descobriu a identidade de Bruce sozinho. É considerado o maior detetive da família depois do Batman." },
+                { name: "Robin III", img: "https://i.pinimg.com/564x/f0/a0/0b/f0a00bf8a5948011928014521405101a.jpg", short: "O Menino Detetive.", hist: "Visual clássico de Tim Drake como Robin, usando calças compridas e bastão Bo." }
+            ]
+        },
+        { 
+            name: "Batgirl", real: "Barbara Gordon", type: "hero", color: "aa00ff", 
+            triv: ["Mente: Fotográfica.", "Time: Aves de Rapina.", "Estudo: TI.", "Poder: Hacker.", "Pai: Gordon."],
+            versions: [
+                { name: "Batgirl de Burnside", img: "https://i.ibb.co/Pv2DXhdw/cf2fd394f3336ae0d732834e4314a30e.jpg", short: "A Gênia.", hist: "Filha do comissário, Barbara usa tecnologia e artes marciais para proteger o bairro de Burnside." },
+                { name: "Oráculo", img: "https://i.pinimg.com/564x/2c/3f/8a/2c3f8a41753c0767794394997327341e.jpg", short: "A Hacker Suprema.", hist: "Após ficar paraplégica pelo Coringa, Babs se reinventou como Oráculo, a maior fonte de informação dos heróis mundiais." }
+            ]
+        },
+        { 
+            name: "Coringa", real: "Desconhecido", type: "villain", color: "00aa00", 
+            triv: ["Imune: Venenos.", "Rosto: Cortado.", "Segredo: Sabe ID.", "Status: Arkham.", "Arma: Gás."],
+            versions: [
+                { 
+                    name: "Coringa (Arkham)", 
+                    img: "https://i.ibb.co/mrVW2jMk/b50d22ebea20c4f8d4c6b568b929c048.jpg",
+                    short: "O Palhaço do Crime.", 
+                    hist: "A versão definitiva do caos. Magro e doente pelo uso da fórmula Titan, ele transformou o Asilo Arkham em seu reino de terror."
+                },
+                { 
+                    name: "Heath Ledger", 
+                    img: "https://i.pinimg.com/564x/24/86/81/248681c62f036729221160408542152a.jpg",
+                    short: "O Anarquista.",
+                    hist: "Um terrorista realista que usa cicatrizes no rosto em vez de maquiagem. Ele quer provar que a moralidade é uma piada ruim."
+                },
+                { 
+                    name: "Piada Mortal", 
+                    img: "https://i.pinimg.com/564x/12/35/60/12356066503460699049753173730248.jpg",
+                    short: "O Comediante.",
+                    hist: "A possível origem trágica: um comediante fracassado que teve 'um dia ruim', perdeu a esposa e caiu em produtos químicos."
+                }
+            ]
+        },
+        { 
+            name: "Arlequina", real: "Harleen Quinzel", type: "villain", color: "ff0055", 
+            triv: ["Arma: Marreta.", "Pet: Hienas.", "Time: Esquadrão.", "Perícia: Ginasta.", "Status: Solteira."],
+            versions: [
+                { name: "Cinema (Margot)", img: "https://i.ibb.co/JF7kt9Kp/38059036a8f73ef48d33aeb91a074e58.jpg", short: "Rainha do Caos.", hist: "A versão moderna e popular, independente do Coringa e liderando o caos em Gotham com seu taco de beisebol." },
+                { name: "Clássica (Bobo)", img: "https://i.pinimg.com/564x/d5/43/e7/d543e742337777085750867041793740.jpg", hist: "A origem na Série Animada. Usando traje de bobo da corte, ela era totalmente devota ao seu 'Pudinzinho'." }
+            ]
+        },
+        // Personagens com 1 ou 2 versões para manter o código otimizado
+        { 
+            name: "Alfred", real: "Pennyworth", type: "hero", color: "555555", 
+            triv: ["Perícia: Médico.", "Arma: Espingarda.", "Passado: Ator.", "Bebida: Chá.", "Status: Pai."],
+            versions: [ { name: "Mordomo Fiel", img: "https://i.ibb.co/yBctKdpV/ea2c3ff9501ef09cdd80ef2477ac90d2.jpg", short: "O Guardião.", hist: "Ex-militar britânico e figura paterna de Bruce. A única pessoa que Bruce obedece." } ]
+        },
+        { 
+            name: "Batwoman", real: "Kate Kane", type: "hero", color: "aa0000", 
+            triv: ["Treino: Militar.", "Relação: Prima.", "Cabelo: Peruca.", "Base: Campanário.", "Vilã: Alice."],
+            versions: [ { name: "Batwoman", img: "https://i.ibb.co/Fbm3Gvp3/ba6b0eacf34a44d6f405a7c4798dd6b0.jpg", short: "A Militar.", hist: "Prima de Bruce, expulsa do exército. Usa táticas militares letais." } ]
+        },
+        { 
+            name: "Caçadora", real: "Helena Bertinelli", type: "hero", color: "5500aa", 
+            triv: ["Arma: Besta.", "Trabalho: Professora.", "Time: Aves.", "Estilo: Violento.", "Origem: Máfia."],
+            versions: [ { name: "Vingadora", img: "https://i.ibb.co/v6tm6HnP/95d422ca4b1a9ef815f7a09d30ebad17.jpg", short: "Filha da Máfia.", hist: "Sobrevivente de um massacre da máfia, busca vingança sangrenta contra o crime organizado." } ]
+        },
+        { 
+            name: "Spoiler", real: "Stephanie Brown", type: "hero", color: "aa00aa", 
+            triv: ["Codinome: Robin IV.", "Namorado: Tim.", "Cor: Roxo.", "Fato: Forjou morte.", "Perícia: Furtiva."],
+            versions: [ { name: "Spoiler", img: "https://i.ibb.co/FqV5PSFq/44d166e4acad37855aba09295d7cc0cd.jpg", short: "A Obstinada.", hist: "Filha do vilão Mestre das Pistas, tornou-se vigilante para atrapalhar os planos do pai." } ]
+        },
+        { 
+            name: "Cassandra Cain", real: "Órfã", type: "hero", color: "111111", 
+            triv: ["Poder: Lê corpos.", "Combate: Top 1.", "Pais: Shiva.", "Nome: Morcego Negro.", "Fala: Pouco."],
+            versions: [ { name: "Morcego Negro", img: "https://i.ibb.co/4nMC68WG/5f76b4d62ef56f8791ea17944b7a4407.jpg", short: "A Arma Viva.", hist: "Criada sem linguagem falada para ser a assassina perfeita. Lê movimentos corporais melhor que palavras." } ]
+        },
+        { 
+            name: "Batwing", real: "Luke Fox", type: "hero", color: "0055ff", 
+            triv: ["Traje: Armadura.", "Pai: Lucius.", "Perícia: MMA.", "Base: Belfry.", "Tech: Drones."],
+            versions: [ { name: "Batwing", img: "https://i.ibb.co/KzK1Sb0Z/b5b3ad5c6093bc9574a3eba5c7ccda0b.jpg", short: "Batman Tech.", hist: "Filho de Lucius Fox, usa uma armadura voadora de alta tecnologia para ser o Batman global." } ]
+        },
+        { 
+            name: "Pinguim", real: "Oswald Cobblepot", type: "villain", color: "ffffff", 
+            triv: ["Arma: Guarda-chuva.", "Base: Iceberg.", "Hobby: Pássaros.", "Estilo: Monóculo.", "Rival: Bruce."],
+            versions: [ { name: "Rei do Crime", img: "https://i.ibb.co/xKB1Qnhh/8fb7e5567e83f5e803e65bda6d185107.jpg", short: "O Magnata.", hist: "Opera o Iceberg Lounge como fachada. Não é louco, apenas ganancioso e cruel." } ]
+        },
+        { 
+            name: "Charada", real: "Edward Nygma", type: "villain", color: "00bb00", 
+            triv: ["Doença: TOC.", "Arma: Bastão.", "Mente: Gênio.", "Ex: Detetive.", "Ego: Gigante."],
+            versions: [ { name: "Mestre dos Enigmas", img: "https://i.ibb.co/Fk1byQ0P/952caf9c488834b16ef8b485718acd28.jpg", short: "O Narcisista.", hist: "Obcecado em provar que é mais inteligente que o Batman. Deixa pistas compulsivamente." } ]
+        },
+        { 
+            name: "Bane", real: "Desconhecido", type: "villain", color: "aa0000", 
+            triv: ["Vício: Venom.", "Mente: Tática.", "Origem: Prisão.", "Item: Urso.", "Feito: Quebrou Bat."],
+            versions: [ { name: "O Quebrador", img: "https://i.ibb.co/FLNL9tb1/f1fa3838d2822460f34eb1d26c392b98.jpg", short: "Força Bruta.", hist: "Nascido na prisão de Santa Prisca. Usou a droga Venom para quebrar a coluna do Batman." } ]
+        },
+        { 
+            name: "Hera Venenosa", real: "Pamela Isley", type: "villain", color: "00aa00", 
+            triv: ["Poder: Plantas.", "Beijo: Tóxico.", "Amiga: Arlequina.", "Comida: Luz.", "Meta: Verde."],
+            versions: [ { name: "Eco-Terrorista", img: "https://i.ibb.co/vrjDzH4/2b77e162b055c4df632c4c4ca427ab2b.jpg", short: "Mãe Natureza.", hist: "Controla toda a vida vegetal. Quer eliminar a humanidade para salvar o planeta." } ]
+        },
+        { 
+            name: "Sr. Frio", real: "Victor Fries", type: "villain", color: "00ffff", 
+            triv: ["Traje: Criogênico.", "Arma: Gelo.", "Emoção: Fria.", "Esposa: Nora.", "Feito: Congelou."],
+            versions: [ { name: "Coração de Gelo", img: "https://i.ibb.co/cKN4C7cj/ca89bff83e57a1880a1a86482099b137.jpg", short: "O Trágico.", hist: "Não é mau, apenas quer salvar sua esposa Nora. Precisa de frio absoluto para sobreviver." } ]
+        },
+        { 
+            name: "Espantalho", real: "Jonathan Crane", type: "villain", color: "964B00", 
+            triv: ["Arma: Gás.", "Fobia: Batman.", "Luta: Foice.", "Ex: Médico.", "Item: Máscara."],
+            versions: [ { name: "Mestre do Medo", img: "https://i.ibb.co/G4Mfyz0K/bbfb879c10f063973a20a9c281677da7.jpg", short: "O Terror.", hist: "Psiquiatra obcecado pelo medo. Usa toxinas para fazer as vítimas verem seus piores pesadelos." } ]
+        },
+        { 
+            name: "Ra's al Ghul", real: "Cabeça do Demônio", type: "villain", color: "004400", 
+            triv: ["Idade: +600.", "Base: Nanda Parbat.", "Filha: Talia.", "Perícia: Espada.", "Meta: Limpeza."],
+            versions: [ { name: "O Imortal", img: "https://i.ibb.co/b5Ywkr25/c06ec25262e2c42abd2cf3eda617f230.jpg", short: "Líder da Liga.", hist: "Usa Poços de Lázaro para viver eternamente. Quer reduzir a população mundial para salvar a Terra." } ]
+        },
+        { 
+            name: "Cara de Barro", real: "Basil Karlo", type: "villain", color: "8B4513", 
+            triv: ["Poder: Lama.", "Fraqueza: Água.", "Corpo: Moldável.", "Papel: Ator.", "Ex: Humano."],
+            versions: [ { name: "O Monstro", img: "https://i.ibb.co/nsdLSpq1/882bce168da489d3848f0e6ccfed79ac.jpg", short: "O Ator.", hist: "Ator que se transformou em lama viva. Pode virar qualquer pessoa ou arma." } ]
+        },
+        { 
+            name: "Crocodilo", real: "Waylon Jones", type: "villain", color: "003300", 
+            triv: ["Aparência: Réptil.", "Casa: Esgoto.", "Força: Super.", "Dieta: Carne.", "Nado: Rápido."],
+            versions: [ { name: "Rei do Esgoto", img: "https://i.ibb.co/d0mtk4gC/d344326d7409ec7eaa890a9d67e609bf.jpg", short: "O Canibal.", hist: "Sofreu mutação genética. Vive nos esgotos e devora quem entra em seu território." } ]
+        },
+        { 
+            name: "Chapeleiro", real: "Jervis Tetch", type: "villain", color: "00ffaa", 
+            triv: ["Obsessão: Alice.", "Tech: Mente.", "Dentes: Grandes.", "Tamanho: Baixo.", "Mente: Louca."],
+            versions: [ { name: "Chapeleiro", img: "https://i.ibb.co/2193Yj3K/75ccc5e5ea699031bcf32b31898427e9.jpg", short: "Hipnotizador.", hist: "Obsessivo por Alice no País das Maravilhas. Usa chapéus para controlar mentes." } ]
+        },
+        { 
+            name: "Silêncio", real: "Thomas Elliot", type: "villain", color: "cccccc", 
+            triv: ["Segredo: Identidade.", "Trabalho: Cirurgião.", "Arma: Pistolas.", "Motivo: Inveja.", "Rosto: Faixas."],
+            versions: [ { name: "O Cirurgião", img: "https://i.ibb.co/Y45w4TzG/4eddec21b15fb198f0ff84d50f4c35ff.jpg", short: "Invejoso.", hist: "Amigo de infância de Bruce. Fez cirurgia plástica para ficar igual a Bruce e roubar sua vida." } ]
+        },
+        { 
+            name: "Máscara Negra", real: "Roman Sionis", type: "villain", color: "222222", 
+            triv: ["Máscara: Ébano.", "Estilo: Terno.", "Gangue: Face Falsa.", "Natureza: Sádico.", "Rival: Mulher-Gato."],
+            versions: [ { name: "Chefe do Crime", img: "https://i.ibb.co/N29rt1kb/7f6c8cf1365e3eb526c3b1f3f7a89614.jpg", short: "O Sádico.", hist: "Mafioso brutal que queimou a máscara no próprio rosto. Mestre em tortura." } ]
+        },
+        { 
+            name: "Exterminador", real: "Slade Wilson", type: "villain", color: "ffaa00", 
+            triv: ["Poder: Cura.", "Olho: Cego.", "Filhos: Rose.", "Rival: Titãs.", "Mente: 90%."],
+            versions: [ { name: "O Mercenário", img: "https://i.ibb.co/Tqg2T7xS/fb167b5861dd68485152d3445236c494.jpg", short: "O Maior Assassino.", hist: "Super-soldado modificado. O assassino mais letal do mundo e estrategista genial." } ]
+        },
+        { 
+            name: "Hugo Strange", real: "Hugo Strange", type: "villain", color: "444444", 
+            triv: ["Feito: Protocolo 10.", "Segredo: Identidade.", "Meta: Ser Batman.", "Base: Arkham City.", "Estilo: Óculos."],
+            versions: [ { name: "O Psiquiatra", img: "https://i.ibb.co/RGgr87MB/61085338a494c17492ead6544541825f.jpg", short: "Mente Mestra.", hist: "Deduziu que Bruce é o Batman. Quer destruir a mente dele para provar ser superior." } ]
+        },
+        { 
+            name: "Solomon Grundy", real: "Cyrus Gold", type: "villain", color: "eeeeee", 
+            triv: ["Poema: Grundy.", "Natureza: Zumbi.", "Força: Superman.", "Mente: Nula.", "Casa: Pântano."],
+            versions: [ { name: "O Zumbi", img: "https://i.ibb.co/1fwp76HX/e25619acda8b46c67da69496f5703d59.jpg", short: "Imortal.", hist: "Assassino do século 19 que renasceu no pântano. Volta à vida cada vez mais forte e burro." } ]
+        },
+        { 
+            name: "Ventríloquo", real: "Arnold Wesker", type: "villain", color: "555555", 
+            triv: ["Boneco: Scarface.", "Arma: Metralhadora.", "Doença: Dupla.", "Status: Refém.", "Material: Madeira."],
+            versions: [ { name: "O Boneco", img: "https://i.ibb.co/2YjnLd0s/06cbd60dc6b6b2400ffcf11db444f3df.jpg", short: "Scarface.", hist: "Arnold é manso, mas seu boneco Scarface é um gângster violento que controla sua mente." } ]
+        },
+        { 
+            name: "Prof. Pyg", real: "Lazlo Valentin", type: "villain", color: "ffcccc", 
+            triv: ["Máscara: Porco.", "Vítimas: Bonecos.", "Estilo: Ópera.", "Arma: Facas.", "Mente: Doente."],
+            versions: [ { name: "O Açougueiro", img: "https://i.ibb.co/Gv6BbNKr/0338bf6041edfccbe2f6c5e804eecf93.jpg", short: "Perfeccionista.", hist: "Cirurgião insano que transforma pessoas em 'Dollotrons' sem mente para torná-las perfeitas." } ]
+        },
+        { 
+            name: "Garra", real: "William Cobb", type: "villain", color: "333333", 
+            triv: ["Grupo: Corte.", "Fraqueza: Frio.", "Poder: Imortal.", "Arma: Adagas.", "Idade: 100+."],
+            versions: [ { name: "O Assassino", img: "https://i.ibb.co/0yr96Rkz/b1a9ab184f6a9df4ef38b060985305d5.jpg", short: "Corte das Corujas.", hist: "Assassino imortal mantido vivo pela Corte das Corujas. É o bisavô de Dick Grayson." } ]
+        },
+        { 
+            name: "Homem-Pipa", real: "Chuck Brown", type: "villain", color: "00ff00", 
+            triv: ["Frase: Hell Yeah!", "Veículo: Pipa.", "Status: Piada.", "Ex: Hera.", "Trabalho: Ladrão."],
+            versions: [ { name: "Hell Yeah", img: "https://i.ibb.co/5gw4t6Lf/f048be7e60a58c6abf1cf7a859518e86.jpg", short: "O Azarão.", hist: "Vilão D que usa pipas. Apesar de ser uma piada, tem um coração de ouro e persistência." } ]
+        },
+        { 
+            name: "Morcego Humano", real: "Kirk Langstrom", type: "villain", color: "552200", 
+            triv: ["Forma: Monstro.", "Poder: Voo.", "Tragédia: Soro.", "Dieta: Sangue.", "Status: Vítima."],
+            versions: [ { name: "A Besta", img: "https://i.ibb.co/3YPt9WX5/119cc2bd500c89368f26952b64172d5e.jpg", short: "Erro Científico.", hist: "Cientista que tentou curar a surdez com DNA de morcego e virou um monstro irracional." } ]
+        },
+        { 
+            name: "Victor Zsasz", real: "Victor Zsasz", type: "villain", color: "aaaaaa", 
+            triv: ["Corpo: Cortes.", "Arma: Faca.", "Motivo: Libertar.", "Vítimas: Centenas.", "Origem: Rico."],
+            versions: [ { name: "Serial Killer", img: "https://i.ibb.co/9kt7LYw4/0a9f8c74a97a71222c75cd13fe5239d1.jpg", short: "O Marcado.", hist: "Mata para 'libertar' as pessoas da vida. Faz um corte no próprio corpo para cada vítima." } ]
+        },
+        { 
+            name: "Vagalume", real: "Garfield Lynns", type: "villain", color: "ff5500", 
+            triv: ["Equipe: Jetpack.", "Obsessão: Fogo.", "Pele: Queimada.", "Papel: Incêndio.", "Perigo: Alto."],
+            versions: [ { name: "Piromaníaco", img: "https://i.ibb.co/PvWqWJXM/c8bdf8c29dfb21016daf14965c156383.jpg", short: "O Incendiário.", hist: "Ex-especialista em efeitos especiais obcecado por ver o mundo queimar." } ]
+        },
+        { 
+            name: "Homem Calendário", real: "Julian Day", type: "villain", color: "ff0000", 
+            triv: ["Motivo: Datas.", "Mente: Memória.", "Status: Preso.", "Papel: Consultor.", "Nome: Julian."],
+            versions: [ { name: "O Consultor", img: "https://i.ibb.co/tWYZJDH/232cc49e1e5d441370d542e22155819c.jpg", short: "Datas Especiais.", hist: "Comete crimes em feriados. No Arkham, age como Hannibal Lecter ajudando o Batman." } ]
+        },
+        { 
+            name: "Comissário Gordon", real: "Jim Gordon", type: "ally", color: "654321", 
+            triv: ["Filha: Barbara.", "Vício: Cigarro.", "Armadura: Bat-Mech.", "Perícia: Policial.", "Segredo: Desconfia."],
+            versions: [ { name: "O Comissário", img: "https://i.ibb.co/MD7Sj6Nw/5f1bfaba6f48992b31b98b5e3c9585a4.jpg", short: "A Lei.", hist: "O único policial honesto de Gotham. Maior aliado do Batman na força policial." } ]
+        },
+        { 
+            name: "Lucius Fox", real: "Lucius", type: "ally", color: "222222", 
+            triv: ["Papel: Tech.", "Filho: Luke.", "Segredo: Sabe tudo.", "Trabalho: CEO.", "Moral: Ética."],
+            versions: [ { name: "O CEO", img: "https://i.ibb.co/TphSWGx/d0bf9593c5ce1953b5f497c94ac4a51b.jpg", short: "Suporte Técnico.", hist: "Administra as Empresas Wayne e cria todos os gadgets e veículos do Batman." } ]
+        },
+        { 
+            name: "Harvey Bullock", real: "Bullock", type: "ally", color: "443322", 
+            triv: ["Gosta: Donuts.", "Estilo: Noir.", "Parceira: Montoya.", "Jeito: Grosso.", "Luta: Briga."],
+            versions: [ { name: "Detetive", img: "https://i.ibb.co/Qvwh1nZq/c15e51606db28942576a6e11337a35f4.jpg", short: "Policial Velho.", hist: "Detetive desleixado e cínico, mas leal a Gordon. Odeia o Batman, mas aceita ajuda." } ]
+        },
+        { 
+            name: "Renee Montoya", real: "A Questão", type: "ally", color: "0000aa", 
+            triv: ["Máscara: Sem Rosto.", "Mestre: Sage.", "Ex: Policial.", "Relação: Kane.", "Estilo: Terno."],
+            versions: [ { name: "A Questão", img: "https://i.ibb.co/6cRJL8nM/bf2ab78d1b682aec09e4e40a4b12458b.jpg", short: "Sem Rosto.", hist: "Ex-policial que assumiu o manto do Questão. Investiga conspirações corruptas." } ]
+        },
+        { 
+            name: "Vicki Vale", real: "Vicki", type: "ally", color: "ffaaaa", 
+            triv: ["Trabalho: Repórter.", "Meta: Fotos.", "Cabelo: Ruivo.", "Rival: Lois.", "Perícia: Investigação."],
+            versions: [ { name: "A Jornalista", img: "https://i.ibb.co/hJ9FYYWS/566e791f9bf19645d956f8a15d8bdef3.jpg", short: "Gazeta de Gotham.", hist: "Repórter destemida sempre tentando descobrir a identidade do Batman." } ]
+        },
+        { 
+            name: "Leslie Thompkins", real: "Dra. Leslie", type: "ally", color: "eeeeee", 
+            triv: ["Papel: Médica.", "Crença: Paz.", "Local: Beco.", "Paciente: Bruce.", "Segredo: Sabe."],
+            versions: [ { name: "A Médica", img: "https://i.ibb.co/svbYw6pj/f774bd68918eb2d22fc0d89df9e5f7db.jpg", short: "A Pacificista.", hist: "Amiga de Thomas Wayne que cuida dos pobres no Beco do Crime e cura o Batman." } ]
+        },
+        { 
+            name: "Ace", real: "Ace", type: "ally", color: "333333", 
+            triv: ["Raça: Pastor.", "Item: Máscara.", "Dono: Bruce.", "Amigo: Titus.", "Status: Bom Garoto."],
+            versions: [ { name: "Bat-Cão", img: "https://i.ibb.co/gLRnJmkB/58c464d5296f40350f389d379b2506b1.jpg", short: "O Melhor Amigo.", hist: "Cão resgatado e treinado por Bruce. Protege a Batcaverna e fareja pistas." } ]
+        },
+        { 
+            name: "Bat-Mirim", real: "Mite", type: "ally", color: "0099ff", 
+            triv: ["Poder: Magia.", "Roupa: Cosplay.", "Origem: 5D.", "Ídolo: Batman.", "Jeito: Chato."],
+            versions: [ { name: "O Duende", img: "https://i.ibb.co/qLK44D27/5b8ff99e60686c1ec19152ec9560ecee.jpg", short: "Fã Número 1.", hist: "Duende mágico da 5ª dimensão que cria problemas só para ver o Batman resolver." } ]
+        },
+        { 
+            name: "Fantasma Cinzento", real: "Simon Trent", type: "ally", color: "aaaaaa", 
+            triv: ["Profissão: Ator.", "Papel: Herói.", "Fã: Bruce.", "Traje: Pulp.", "Status: Lenda."],
+            versions: [ { name: "Herói da TV", img: "https://i.ibb.co/My8FmFXw/0068420f6dfa626d92edea3e588c6219.jpg", short: "A Inspiração.", hist: "Herói da infância de Bruce Wayne. Ensinou a ele o valor da justiça através da TV." } ]
+        },
+        { 
+            name: "Talia al Ghul", real: "Talia", type: "villain", color: "000000", 
+            triv: ["Pai: Ra's.", "Filho: Damian.", "Amor: Batman.", "Luta: Elite.", "Empresa: LexCorp."],
+            versions: [ { name: "Herdeira", img: "https://i.ibb.co/ycHz9qwR/54dfcaa26668eec7b559257ccbea9a6c.jpg", short: "Amor Proibido.", hist: "Filha de Ra's al Ghul. Ama Bruce, mas sua lealdade à Liga dos Assassinos os separa." } ]
+        },
+        { 
+            name: "Pistoleiro", real: "Floyd Lawton", type: "villain", color: "ff0000", 
+            triv: ["Mira: Perfeita.", "Filha: Zoe.", "Time: Esquadrão.", "Arma: Pulsos.", "Rival: Batman."],
+            versions: [ { name: "O Atirador", img: "https://i.ibb.co/Y7hRyzYG/13e2d55b36b95371592524a38a723830.jpg", short: "Nunca Erra.", hist: "Assassino de aluguel que manda dinheiro para a filha. Líder de campo do Esquadrão Suicida." } ]
+        },
+        { 
+            name: "Capitão Bumerangue", real: "Digger Harkness", type: "villain", color: "00aaff", 
+            triv: ["Arma: Bumerangue.", "Origem: Austrália.", "Time: Esquadrão.", "Inimigo: Flash.", "Jeito: Bêbado."],
+            versions: [ { name: "O Ladrão", img: "https://i.ibb.co/mVBP230J/dbb4be828fc7d5aa4c51a3561a5dc795.jpg", short: "O Trapaceiro.", hist: "Criminoso australiano covarde e trapaceiro. Usa bumerangues explosivos." } ]
+        },
+        { 
+            name: "Tubarão Rei", real: "Nanaue", type: "villain", color: "0055aa", 
+            triv: ["Pai: Deus.", "Dieta: Pessoas.", "Mente: Criança.", "Pele: Dura.", "Time: Esquadrão."],
+            versions: [ { name: "Nanaue", img: "https://i.ibb.co/bg6TscXS/157142999de964d03c5e15613de7e0ad.jpg", short: "O Semideus.", hist: "Filho do Deus Tubarão. Forte, inocente e faminto por carne humana." } ]
+        }
+    ];
+    </script>
+    <script>
+    const lista2 = [
+        { 
+            name: "Pacificador", real: "Chris Smith", type: "villain", color: "ff0000", 
+            triv: ["Capacete: Sônico.", "Lema: Paz.", "Pai: Dragão.", "Mascote: Eagly.", "Dança: Abertura."],
+            versions: [ { name: "Pacificador", img: "https://i.ibb.co/NdQW58S7/f6fb1955d337e0d05dbb13ab3c67cbb5.jpg", short: "Paz Violenta.", hist: "Mata qualquer um em nome da paz. Instável e patriota." } ]
+        },
+        { 
+            name: "Arraia Negra", real: "David Hyde", type: "villain", color: "000000", 
+            triv: ["Rival: Aquaman.", "Traje: Mergulho.", "Arma: Raios.", "Filho: Kaldur.", "Objetivo: Vingança."],
+            versions: [ { name: "O Pirata", img: "https://i.ibb.co/XZHYHqqs/1154d260d08592e9daf9e7206e7ea06c.jpg", short: "Vingança Pura.", hist: "Pirata tecnológico que culpa Aquaman pela morte do pai." } ]
+        },
+        { 
+            name: "Mulher-Leopardo", real: "Barbara Minerva", type: "villain", color: "ffee00", 
+            triv: ["Inimiga: Diana.", "Poder: Garras.", "Origem: Maldição.", "Natureza: Canibal.", "Status: Feral."],
+            versions: [ { name: "A Predadora", img: "https://i.ibb.co/2GWK1j3/0a0a3b692e10dfb695f102eda31023e2.jpg", short: "Amaldiçoada.", hist: "Arqueóloga amaldiçoada por um deus planta. Inimiga mortal da Mulher-Maravilha." } ]
+        },
+        { 
+            name: "Flash Reverso", real: "Eobard Thawne", type: "villain", color: "ffff00", 
+            triv: ["Velocidade: Negativa.", "Ódio: Flash.", "Origem: Futuro.", "Feito: Flashpoint.", "Mente: Psicota."],
+            versions: [ { name: "O Paradoxo", img: "https://i.ibb.co/8nFsp0Xb/36d2adf76502716f7066d7395021cbb7.jpg", short: "Inimigo do Tempo.", hist: "Viajante do tempo que matou a mãe de Barry Allen para criar o Flash." } ]
+        },
+        { 
+            name: "Gorila Grodd", real: "Grodd", type: "villain", color: "333333", 
+            triv: ["Poder: Telepatia.", "Cidade: Gorila.", "Odeia: Humanos.", "Dieta: Cérebros.", "Meta: Dominar."],
+            versions: [ { name: "Rei Gorila", img: "https://i.ibb.co/MyTZZhRb/why-gorilla-grodd-is-a-perfect-batman-villain-v0-d7rqfrtufkvf1.webp", short: "Telepata.", hist: "Gorila superinteligente que quer escravizar a humanidade." } ]
+        },
+        { 
+            name: "Brainiac", real: "Vril Dox", type: "villain", color: "00ff00", 
+            triv: ["Nave: Caveira.", "Hobby: Colecionar.", "Inimigo: Superman.", "Intelecto: 12.", "Origem: Colu."],
+            versions: [ { name: "O Colecionador", img: "https://i.ibb.co/W4xxKQrt/a03cb137ae65975b52bb3959b9cd8a80.jpg", short: "IA Alienígena.", hist: "Encolhe cidades para preservar o conhecimento do universo." } ]
+        },
+        { 
+            name: "General Zod", real: "Dru-Zod", type: "villain", color: "333333", 
+            triv: ["Frase: Ajoelhe-se.", "Origem: Krypton.", "Poder: Superman.", "Zona: Fantasma.", "Meta: Nova Krypton."],
+            versions: [ { name: "O General", img: "https://i.ibb.co/KxNF7j4X/b5b7b534af4f68931157643b24c5fb48.jpg", short: "Militar.", hist: "Líder militar de Krypton que quer terraformar a Terra." } ]
+        },
+        { 
+            name: "Apocalypse", real: "Doomsday", type: "villain", color: "555555", 
+            triv: ["Poder: Evolução.", "Feito: Matou Super.", "Origem: Antiga.", "Fala: Nada.", "Força: Infinita."],
+            versions: [ { name: "A Besta", img: "https://i.ibb.co/BVxBh1RZ/158f2bd462836154a8565ef3169d1c0d.jpg", short: "O Fim.", hist: "Arma biológica kryptoniana criada para matar. O monstro que matou o Superman." } ]
+        },
+        { 
+            name: "Lobo da Estepe", real: "Steppenwolf", type: "villain", color: "666666", 
+            triv: ["Arma: Machado.", "Chefe: Darkseid.", "Origem: Apokolips.", "Inimigo: Liga.", "Tropa: Parademônios."],
+            versions: [ { name: "O General", img: "https://i.ibb.co/TxGw2njm/02d203706f46f1e2a6ff12c2c3781056.jpg", short: "Conquistador.", hist: "Tio de Darkseid e líder de seus exércitos." } ]
+        },
+        { 
+            name: "Vovó Bondade", real: "Goodness", type: "villain", color: "eeeeee", 
+            triv: ["Local: Orfanato.", "Time: Fúrias.", "Mestre: Darkseid.", "Arma: Bastão.", "Jeito: Sádica."],
+            versions: [ { name: "A Treinadora", img: "https://i.ibb.co/whgw5hPB/9fd25ee302528038f672b8cb06ba83a5.jpg", short: "Cruel.", hist: "Treina os soldados de elite de Darkseid através de tortura." } ]
+        },
+        { 
+            name: "Senhor Milagre", real: "Scott Free", type: "justice", color: "ff0000", 
+            triv: ["Esposa: Barda.", "Pai: Pai Celestial.", "Item: Caixa Materna.", "Habilidade: Fuga.", "Origem: Nova Gênese."],
+            versions: [ { name: "Mestre de Fugas", img: "https://i.ibb.co/4nyN44zk/1490fc5eea0de14e63ae52805f8dd01e.jpg", short: "O Deus.", hist: "Filho da paz criado no inferno de Apokolips. Foge de qualquer armadilha." } ]
+        },
+        { 
+            name: "Grande Barda", real: "Barda", type: "justice", color: "ffd700", 
+            triv: ["Arma: Mega-Bastão.", "Marido: Milagre.", "Força: Colossal.", "Ex: Fúrias.", "Tamanho: Gigante."],
+            versions: [ { name: "A Guerreira", img: "https://i.ibb.co/DDKKJ5g2/3c62e4e7f9b11a5826b2e8587c863379.jpg", short: "Ex-Fúria.", hist: "A guerreira mais forte de Apokolips que fugiu por amor." } ]
+        },
+        { 
+            name: "Órion", real: "Orion", type: "justice", color: "cc0000", 
+            triv: ["Pai: Darkseid.", "Item: Planador.", "Poder: Astro-Força.", "Rosto: Feio.", "Profecia: Matar pai."],
+            versions: [ { name: "Cão de Guerra", img: "https://i.ibb.co/TBN76MRr/ac48d79a7db63fb8c204d773fe56a683.jpg", short: "O Soldado.", hist: "Filho de Darkseid criado no paraíso. Luta para controlar sua raiva." } ]
+        },
+        { 
+            name: "Monstro do Pântano", real: "Alec Holland", type: "justice", color: "004400", 
+            triv: ["Poder: Plantas.", "Conexão: O Verde.", "Amiga: Abby.", "Corpo: Vegetal.", "Força: Imensa."],
+            versions: [ { name: "Avatar do Verde", img: "https://i.ibb.co/7dHtF0CR/22798ab87c4dc13dcc4af40a9760d5f7.jpg", short: "Protetor.", hist: "A encarnação da vida vegetal na Terra." } ]
+        },
+        { 
+            name: "Etrigan", real: "Jason Blood", type: "ally", color: "ffff00", 
+            triv: ["Fala: Rima.", "Humano: Jason.", "Origem: Inferno.", "Poder: Fogo.", "Amigo: Batman."],
+            versions: [ { name: "O Demônio", img: "https://i.ibb.co/1tsppFnK/bdb3331eb2cf1171af935e988da1545a.jpg", short: "O Rimador.", hist: "Demônio ligado a um cavaleiro imortal. Fala em rimas." } ]
+        },
+        { 
+            name: "Senhor Destino", real: "Kent Nelson", type: "justice", color: "ffd700", 
+            triv: ["Item: Capacete.", "Entidade: Nabu.", "Base: Torre.", "Poder: Magia.", "Time: SJA."],
+            versions: [ { name: "Mago Supremo", img: "https://i.ibb.co/4ZVcpvLg/3600d2cf20082ceaf71e8ce35281f7c1.jpg", short: "Senhor da Ordem.", hist: "Usa o capacete de Nabu para ser o mago mais forte da Terra." } ]
+        },
+        { 
+            name: "Gavião Negro", real: "Carter Hall", type: "justice", color: "442200", 
+            triv: ["Arma: Maça.", "Metal: Nth.", "Amor: Mulher-Gavião.", "Vidas: Muitas.", "Jeito: Bravo."],
+            versions: [ { name: "O Arqueólogo", img: "https://i.ibb.co/fVSQTq80/7642327193512a8c1a4b7633d00dad75.jpg", short: "Reencarnado.", hist: "Príncipe egípcio reencarnado que luta com metal alienígena." } ]
+        },
+        { 
+            name: "Mulher-Gavião", real: "Shayera Hol", type: "justice", color: "ffff00", 
+            triv: ["Origem: Thanagar.", "Arma: Maça.", "Amor: John/Carter.", "Voo: Asas.", "Temperamento: Quente."],
+            versions: [ { name: "A Guerreira", img: "https://i.ibb.co/RTh7Y1kf/1b15da0933a3790233b5a5505f33c1ff.jpg", short: "Thanagariana.", hist: "Policial alienígena feroz em batalha." } ]
+        },
+        { 
+            name: "Arsenal", real: "Roy Harper", type: "hero", color: "ff0000", 
+            triv: ["Ex-Nome: Ricardito.", "Vício: Superado.", "Filha: Lian.", "Amigo: Capuz.", "Boné: Marca."],
+            versions: [ { name: "Arsenal", img: "https://i.ibb.co/g2N1qPV/fed055b3b7d95ad0142dd1fe2c40c64b.jpg", short: "Arqueiro Vermelho.", hist: "Ex-parceiro do Arqueiro Verde que superou o vício e virou um mestre de armas." } ]
+        },
+        { 
+            name: "Besouro Azul", real: "Jaime Reyes", type: "hero", color: "0000ff", 
+            triv: ["Item: Escaravelho.", "Origem: El Paso.", "Poder: Armadura.", "Mentor: Ted.", "Amigo: Gladiador."],
+            versions: [ { name: "O Escaravelho", img: "https://i.ibb.co/8DpwJ1wh/d551cf3c6741219dae285730cafd2946.jpg", short: "Armadura Alien.", hist: "Adolescente fundido a uma arma alienígena poderosa." } ]
+        },
+        { 
+            name: "Gladiador Dourado", real: "Michael Carter", type: "hero", color: "ffd700", 
+            triv: ["Robô: Skeets.", "Amigo: Besouro.", "Origem: Futuro.", "Motivo: Fama.", "Poder: Tech roubada."],
+            versions: [ { name: "O Herói", img: "https://i.ibb.co/ZzRb49dt/07f47e433dd2de4f9d8011f13b672079.jpg", short: "Viajante do Tempo.", hist: "Veio do futuro para ficar famoso e rico, mas virou herói de verdade." } ]
+        },
+        { 
+            name: "Questão", real: "Vic Sage", type: "ally", color: "ff8800", 
+            triv: ["Máscara: Pele.", "Mente: Filósofo.", "Cidade: Hub City.", "Aluna: Renee.", "Estilo: Casaco."],
+            versions: [ { name: "O Teórico", img: "https://i.ibb.co/rKLjvMYb/2f2215183abebf9877141c97ddb19d88.jpg", short: "Sem Rosto.", hist: "Jornalista paranoico que vê conspirações em tudo." } ]
+        },
+        { 
+            name: "Rorschach", real: "Walter Kovacs", type: "ally", color: "cccccc", 
+            triv: ["Máscara: Tinta.", "Diário: Famoso.", "Cheiro: Ruim.", "Moral: Absoluta.", "Morte: Manhattan."],
+            versions: [ { name: "O Vigilante", img: "https://i.ibb.co/s9wcCFRB/e3984464d2d5cf821e869419426eba66.jpg", short: "Watchmen.", hist: "Vigilante brutal que nunca compromete seus princípios." } ]
+        },
+        { 
+            name: "Dr. Manhattan", real: "Jon Osterman", type: "justice", color: "00aaff", 
+            triv: ["Poder: Deus.", "Cor: Azul.", "Roupa: Nenhuma.", "Símbolo: H.", "Origem: Watchmen."],
+            versions: [ { name: "O Deus", img: "https://i.ibb.co/N2XtVx0z/ca42c8facd8f2b37557d17bc077900c0.jpg", short: "Onipotente.", hist: "Ser de energia pura que perdeu a humanidade." } ]
+        },
+        { 
+            name: "Ozymandias", real: "Adrian Veidt", type: "villain", color: "d4af37", 
+            triv: ["Feito: Salvou mundo.", "Plano: Deu certo.", "Pet: Lince.", "Origem: Watchmen.", "QI: Máximo."],
+            versions: [ { name: "O Mais Esperto", img: "https://i.ibb.co/cSVbRrSC/8867dc819f942bb8c545c11ae5209781.jpg", short: "O Visionário.", hist: "Matou milhões para salvar bilhões da guerra nuclear." } ]
+        },
+        { 
+            name: "Espectro", real: "Jim Corrigan", type: "justice", color: "004400", 
+            triv: ["Poder: Divino.", "Missão: Punir.", "Hospedeiro: Policial.", "Nível: Cósmico.", "Fraqueza: Nenhuma."],
+            versions: [ { name: "A Ira", img: "https://i.ibb.co/LXpVNQ0n/65c771df40018034b39e9a4843951809.jpg", short: "Espírito da Vingança.", hist: "A mão direita de Deus para punir o mal." } ]
+        },
+        { 
+            name: "Jonah Hex", real: "Jonah Hex", type: "ally", color: "654321", 
+            triv: ["Rosto: Cortado.", "Época: Oeste.", "Arma: Revólver.", "Moral: Cinza.", "Habilidade: Tiro."],
+            versions: [ { name: "O Caçador", img: "https://i.ibb.co/ZpvZ74hQ/972d3efadf207bf7019249f954394657.jpg", short: "Velho Oeste.", hist: "Pistoleiro desfigurado do século 19 que viaja no tempo." } ]
+        },
+        { 
+            name: "Superboy", real: "Conner Kent", type: "hero", color: "000000", 
+            triv: ["DNA: Clark+Lex.", "Camiseta: Preta.", "Poder: Tátil.", "Time: Justiça Jovem.", "Namorada: Moça-M."],
+            versions: [ { name: "O Clone", img: "https://i.ibb.co/hxYLsNpS/075c4f1e10dcdf85ddfafc9d9c3c0fc3.jpg", short: "Projeto Cadmus.", hist: "Clone feito do DNA do Superman e Lex Luthor." } ]
+        },
+        { 
+            name: "Moça-Maravilha", real: "Donna Troy", type: "hero", color: "ff0000", 
+            triv: ["Arma: Laço.", "Time: Titãs.", "Origem: Mágica.", "Amiga: Estelar.", "Status: Guerreira."],
+            versions: [ { name: "A Irmã", img: "https://i.ibb.co/0pD9Z4fP/7853dbca8c5e0791026f1433c612e811.jpg", short: "Amazona.", hist: "Irmã adotiva da Mulher-Maravilha e fundadora dos Titãs." } ]
+        },
+        { 
+            name: "Kid Flash", real: "Wally West", type: "hero", color: "ffff00", 
+            triv: ["Velocidade: Maior.", "Humor: Alto.", "Time: Titãs.", "Cor: Amarelo.", "Amigo: Dick."],
+            versions: [ 
+                { name: "Kid Flash", img: "https://i.ibb.co/nqVf8Mcn/d8e875cadf80d4d1bb20631fe2ca51a3.jpg", short: "O Parceiro.", hist: "Sobrinho de Barry Allen que se tornou o Flash mais rápido de todos." },
+                { name: "Flash (Wally)", img: "https://i.pinimg.com/564x/01/5e/51/015e51921350a4d04841793397985794.jpg", short: "O Homem Mais Rápido.", hist: "Quando assumiu o manto principal e superou seu mentor." }
+            ]
+        },
+        { 
+            name: "Aqualad", real: "Kaldur", type: "hero", color: "00ffff", 
+            triv: ["Pai: Arraia.", "Arma: Água.", "Time: Justiça Jovem.", "Líder: Nato.", "Origem: Atlântida."],
+            versions: [ { name: "O Líder", img: "https://i.ibb.co/d0hkbVM7/dee60099b4c4a18c1c32f629b503ada8.jpg", short: "Filho do Vilão.", hist: "Filho do Arraia Negra que escolheu o bem." } ]
+        },
+        { 
+            name: "Superman", real: "Clark Kent", type: "justice", color: "0055ff", 
+            triv: ["Fraqueza: Kryptonita.", "Poder: Solar.", "Cidade: Metropolis.", "Emprego: Repórter.", "Amor: Lois."],
+            versions: [ 
+                { name: "O Clássico", img: "https://i.ibb.co/Z1tHH0tb/f2acdea954e12106cead3ddeba1be953.jpg", short: "Homem de Aço.", hist: "O maior herói da Terra." },
+                { name: "Traje Preto", img: "https://i.pinimg.com/564x/23/5d/46/235d464a66023366cc637db511475752.jpg", short: "O Retorno.", hist: "Após reviver, usou traje preto para absorver mais sol." },
+                { name: "Entre a Foice", img: "https://i.pinimg.com/564x/e1/9f/8e/e19f8e43840748110822695627237078.jpg", short: "Filho Vermelho.", hist: "Caiu na Rússia Soviética e virou líder comunista." }
+            ]
+        },
+        { 
+            name: "Mulher-Maravilha", real: "Diana", type: "justice", color: "aa0000", 
+            triv: ["Laço: Verdade.", "Braceletes: Indestrutíveis.", "Pai: Zeus.", "Ilha: Themyscira.", "Jato: Invisível."],
+            versions: [ 
+                { name: "A Guerreira", img: "https://i.ibb.co/yF9yY696/15dd5d3c34b0291305dd73728422cacd.jpg", short: "Princesa.", hist: "Embaixadora da paz que não teme a guerra." },
+                { name: "Deusa da Guerra", img: "https://i.pinimg.com/564x/1e/86/e1/1e86e118029272333423377750170884.jpg", short: "Novos 52.", hist: "Assumiu o trono de Ares como a nova Deusa da Guerra." }
+            ]
+        },
+        { 
+            name: "Flash", real: "Barry Allen", type: "justice", color: "ff0000", 
+            triv: ["Velocidade: Luz.", "Anel: Traje.", "Cidade: Central City.", "Poder: Vibração.", "Vilão: Flash Reverso."],
+            versions: [ 
+                { name: "O Velocista", img: "https://i.ibb.co/8GytzgW/5fb25ab2707f925a77d300c66b434dd6.jpg", short: "Barry Allen.", hist: "O homem que salvou o multiverso correndo." },
+                { name: "Ezra Miller", img: "https://i.pinimg.com/564x/b8/50/78/b8507850849646452243285750244677.jpg", short: "DCEU.", hist: "Versão jovem e inexperiente do cinema." }
+            ]
+        },
+        { 
+            name: "Lanterna Verde", real: "Hal Jordan", type: "justice", color: "00ff00", 
+            triv: ["Anel: Vontade.", "Tropa: Lanternas.", "Juramento: Luz.", "Amigo: Oliver.", "Base: Oa."],
+            versions: [ 
+                { name: "Hal Jordan", img: "https://i.ibb.co/8LnxxcqN/a29668d508f9adc062910479fbdd5490.jpg", short: "O Maior.", hist: "Piloto destemido e o maior Lanterna Verde." },
+                { name: "Parallax", img: "https://i.pinimg.com/564x/e3/d8/90/e3d89045501865952458421067666207.jpg", short: "O Medo.", hist: "Possuído pelo medo, destruiu a Tropa." }
+            ]
+        },
+        { 
+            name: "Aquaman", real: "Arthur Curry", type: "justice", color: "ff9900", 
+            triv: ["Arma: Tridente.", "Poder: Peixes.", "Esposa: Mera.", "Reino: Atlântida.", "Pele: Dura."],
+            versions: [ 
+                { name: "O Rei", img: "https://i.ibb.co/gMnw8182/5d24a6de957eac3947764ab1b6b6f10a.jpg", short: "Momoa.", hist: "Versão bad-ass e rockstar do cinema." },
+                { name: "Clássico", img: "https://i.pinimg.com/564x/27/c2/f3/27c2f35706248386f6723237e194689c.jpg", short: "Super Friends.", hist: "Versão clássica laranja e verde." }
+            ]
+        },
+        { 
+            name: "Caçador de Marte", real: "J'onn J'onzz", type: "justice", color: "00aa00", 
+            triv: ["Medo: Fogo.", "Poder: Mente.", "Comida: Chocos.", "Forma: Verde.", "Origem: Marte."],
+            versions: [ { name: "O Marciano", img: "https://i.ibb.co/4ZrSMNSd/d7e164f6be8c8cc9043e06d81e3f1727.jpg", short: "Alma da Liga.", hist: "Último sobrevivente de Marte e coração da Liga." } ]
+        },
+        { 
+            name: "Arqueiro Verde", real: "Oliver Queen", type: "justice", color: "006600", 
+            triv: ["Arma: Arco.", "Barba: Loira.", "Política: Esquerda.", "Amor: Canário.", "Flecha: Boxe."],
+            versions: [ { name: "O Arqueiro", img: "https://i.ibb.co/rGyCD9rv/e71dd830a9fe3a970fdff28b9adb5152.jpg", short: "Robin Hood.", hist: "Bilionário que luta pelo povo comum." } ]
+        },
+        { 
+            name: "Canário Negro", real: "Dinah Lance", type: "justice", color: "000000", 
+            triv: ["Poder: Grito.", "Moto: Pilota.", "Luta: Mestre.", "Time: Aves.", "Amor: Oliver."],
+            versions: [ { name: "A Lutadora", img: "https://i.ibb.co/gM401B1T/a14c642a9f9a5b51f202a427722eca81.jpg", short: "Grito Sônico.", hist: "Mestre marcial com um grito capaz de quebrar metal." } ]
+        },
+        { 
+            name: "Zatanna", real: "Zatanna", type: "justice", color: "111111", 
+            triv: ["Magia: Invertida.", "Pai: Zatara.", "Roupa: Cartola.", "Amigo: Bruce.", "Time: Liga Sombria."],
+            versions: [ { name: "A Mágica", img: "https://i.ibb.co/Z6ZhFhB2/697c8dd069720a96605abf04b37a0cb0.jpg", short: "Feiticeira.", hist: "Lança feitiços falando ao contrário. Amiga de infância de Bruce." } ]
+        },
+        { 
+            name: "Constantine", real: "John Constantine", type: "justice", color: "c2b280", 
+            triv: ["Estilo: Casaco.", "Alma: Condenada.", "Cidade: Londres.", "Habilidade: Lábia.", "Time: Liga Sombria."],
+            versions: [ { name: "O Vigarista", img: "https://i.ibb.co/jkBDqWMj/02cc715f0c53505a33aa8369b0395111.jpg", short: "Ocultista.", hist: "Mago britânico que engana demônios e anjos." } ]
+        },
+        { 
+            name: "Shazam", real: "Billy Batson", type: "justice", color: "ff0000", 
+            triv: ["Palavra: SHAZAM!", "Poderes: Deuses.", "Idade: 12.", "Inimigo: Adão.", "Família: Marvel."],
+            versions: [ { name: "O Campeão", img: "https://i.ibb.co/fVjVBGTw/8e5ede098e45e4899c91e0d9c60fe038.jpg", short: "O Garoto.", hist: "Criança que ganha poderes de deuses ao dizer a palavra mágica." } ]
+        },
+        { 
+            name: "Estelar", real: "Koriand'r", type: "hero", color: "ffaa00", 
+            triv: ["Poder: Energia.", "Amor: Dick.", "Pele: Laranja.", "Origem: Espaço.", "Emoção: Intensa."],
+            versions: [ { name: "A Princesa", img: "https://i.ibb.co/8gdhsdXH/bd26f121a9df5f98ce416785a732d5e3.jpg", short: "Tamaraniana.", hist: "Princesa alienígena fugitiva. O coração dos Titãs." } ]
+        },
+        { 
+            name: "Mutano", real: "Garfield Logan", type: "hero", color: "00aa00", 
+            triv: ["Poder: Animais.", "Cor: Verde.", "Amor: Ravena.", "Dieta: Tofu.", "Time: Titãs."],
+            versions: [ { name: "Garoto Fera", img: "https://i.ibb.co/spt34yWK/3ae142db4218f92cbacd6a5f93e11ba0.jpg", short: "O Zueiro.", hist: "Pode virar qualquer animal verde. Usa humor para esconder a dor." } ]
+        },
+        { 
+            name: "Ravena", real: "Rachel Roth", type: "hero", color: "330066", 
+            triv: ["Pai: Trigon.", "Magia: Sombria.", "Mantra: Azarath.", "Cor: Roxo.", "Emoção: Controlada."],
+            versions: [ { name: "A Filha", img: "https://i.ibb.co/7NBdp9TT/ee4c919d5fdbcdc25279e45e31cbf336.jpg", short: "A Bruxa.", hist: "Filha do demônio Trigon. Luta para não destruir o mundo." } ]
+        },
+        { 
+            name: "Ciborgue", real: "Victor Stone", type: "hero", color: "cccccc", 
+            triv: ["Corpo: Robô.", "Poder: Sônico.", "Origem: Caixa Materna.", "Time: Liga.", "Frase: Booyah!"],
+            versions: [ { name: "O Homem Máquina", img: "https://i.ibb.co/mCBVCq6S/fa971421d2a71dbda1e99cba0a29d08f.jpg", short: "Tech Viva.", hist: "Atleta transformado em máquina por tecnologia alienígena." } ]
+        },
+        { 
+            name: "Lobo", real: "Lobo", type: "villain", color: "333333", 
+            triv: ["Moto: Espacial.", "Força: Super.", "Hobby: Golfinhos.", "Estilo: Metal.", "Regeneração: Total."],
+            versions: [ { name: "O Maioral", img: "https://i.ibb.co/21wVMQDD/8dfebdd29bdfe7fcb874b3465e994916.jpg", short: "Caçador.", hist: "Último czarniano. Matou sua raça por diversão." } ]
+        },
+        { 
+            name: "Sinestro", real: "Thaal Sinestro", type: "villain", color: "ffff00", 
+            triv: ["Anel: Medo.", "Bigode: Fino.", "Planeta: Korugar.", "Tropa: Amarela.", "Crença: Ordem."],
+            versions: [ { name: "Lanterna Amarelo", img: "https://i.ibb.co/8DGKKPnP/21b24d757fd6b998f62b03e0dc9cf61e.jpg", short: "O Ditador.", hist: "Acredita que a ordem vem do medo. Criou sua própria Tropa." } ]
+        },
+        { 
+            name: "Adão Negro", real: "Teth-Adam", type: "villain", color: "cca300", 
+            triv: ["Poder: Shazam.", "País: Kahndaq.", "Atitude: Rei.", "Rival: Shazam.", "Moral: Anti-herói."],
+            versions: [ 
+                { name: "O Regente", img: "https://i.ibb.co/VWyGHLj9/932daf86c437005b4136de93eaf1d236.jpg", short: "O Protetor.", hist: "Governa Kahndaq com punho de ferro. Não é herói, é um rei." },
+                { name: "The Rock", img: "https://i.pinimg.com/564x/a4/60/a6/a460a63c8a9807567794358826620593.jpg", short: "Filme.", hist: "Versão cinematográfica do anti-herói." }
+            ]
+        },
+        { 
+            name: "Batman Que Ri", real: "Bruce", type: "villain", color: "220000", 
+            triv: ["Visor: Metal.", "Pets: Robins.", "Origem: Dark.", "Perigo: Máximo.", "Riso: Mortal."],
+            versions: [ { name: "O Pesadelo", img: "https://i.ibb.co/ksdNCZMx/9becf9463ead7f7428f7b1c2201bc17a.jpg", short: "Coringa-Batman.", hist: "Batman infectado pelo Coringa. Destruiu seu próprio universo." } ]
+        }
+    ];
+
+    const dadosCompletos = [...lista1, ...lista2];
+    </script>
+    </body>
+    </html>
